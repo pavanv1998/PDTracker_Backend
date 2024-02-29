@@ -14,6 +14,9 @@ import scipy.interpolate as interpolate
 import scipy.stats as stats
 import time
 
+import torch
+from super_gradients.training import models
+
 from app.finderPeaksSignal import peakFinder
 
 
@@ -57,6 +60,8 @@ def leg_raise_analysis(fps, bounding_box, start_time, end_time, input_video, is_
     knee_landmark_pos = 26
     nose_landmark_pos = 0
 
+    normalization_factor = 1
+
     if is_left_leg is True:
         knee_landmark_pos = 25
 
@@ -79,12 +84,22 @@ def leg_raise_analysis(fps, bounding_box, start_time, end_time, input_video, is_
         frameCounter = frameCounter + 1
 
         landmarks = detection_result.pose_landmarks[0]
+
+        if (normalization_factor == 1):
+            shoulder_mid = [((landmarks[11].x + landmarks[12].x) / 2) * (x2 - x1),
+                            ((landmarks[11].y + landmarks[12].y) / 2) * (y2 - y1)]
+            torso_mid = [((landmarks[23].x + landmarks[24].x) / 2) * (x2 - x1),
+                                        ((landmarks[23].y + landmarks[24].y) / 2) * (y2 - y1)]
+            normalization_factor = math.dist(shoulder_mid, torso_mid)
+
+
         p = [landmarks[knee_landmark_pos].x * (x2 - x1), landmarks[knee_landmark_pos].y * (y2 - y1)]
         q = [landmarks[nose_landmark_pos].x * (x2 - x1), landmarks[nose_landmark_pos].y * (y2 - y1)]
-        landmarks_signal.append([0,math.dist(p, q)])
+        landmarks_signal.append([0,(math.dist(p, q)/normalization_factor)])
         # these are the coordinates of the landmark that you want to display in the video
         knee_landmarks.append(p)
         nose_landmarks.append(q)
+
         # landmarks_signal.append([landmarks[knee_landmark_pos].x - landmarks[nose_landmark_pos].x, landmarks[knee_landmark_pos].y - landmarks[nose_landmark_pos].y])
         # # these are the coordinates of the landmark that you want to display in the video
         # knee_landmarks.append([landmarks[knee_landmark_pos].x * (x2 - x1), landmarks[knee_landmark_pos].y * (y2 - y1)])
@@ -281,7 +296,8 @@ def leg_raise_analysis(fps, bounding_box, start_time, end_time, input_video, is_
             "cvAverageClosingSpeed": cvAverageClosingSpeed
         },
         "landMarks": knee_landmarks,
-        "normalization_landmarks": nose_landmarks
+        "normalization_landmarks": nose_landmarks,
+        "normalization_factor": normalization_factor
 
     }
 
@@ -319,6 +335,8 @@ def toe_tap_analysis(fps, bounding_box, start_time, end_time, input_video, is_le
     knee_landmark_pos = 26
     toe_landmark_pos = 32
 
+    normalization_factor = 1
+
     if is_left_leg is True:
         knee_landmark_pos = 25
         toe_landmark_pos = 31
@@ -342,9 +360,18 @@ def toe_tap_analysis(fps, bounding_box, start_time, end_time, input_video, is_le
         frameCounter = frameCounter + 1
 
         landmarks = detection_result.pose_landmarks[0]
+
+        if (normalization_factor == 1):
+            shoulder_mid = [((landmarks[11].x + landmarks[12].x) / 2) * (x2 - x1),
+                            ((landmarks[11].y + landmarks[12].y) / 2) * (y2 - y1)]
+            torso_mid = [((landmarks[23].x + landmarks[24].x) / 2) * (x2 - x1),
+                                        ((landmarks[23].y + landmarks[24].y) / 2) * (y2 - y1)]
+            normalization_factor = math.dist(shoulder_mid, torso_mid)
+
+
         p = [landmarks[toe_landmark_pos].x * (x2 - x1), landmarks[toe_landmark_pos].y * (y2 - y1)]
         q = [landmarks[knee_landmark_pos].x * (x2 - x1), landmarks[knee_landmark_pos].y * (y2 - y1)]
-        landmarks_signal.append([0,math.dist(p, q)])
+        landmarks_signal.append([0,(math.dist(p, q)/normalization_factor)])
         # these are the coordinates of the landmark that you want to display in the video
         toe_landmarks.append(p)
         knee_landmarks.append(q)
@@ -539,7 +566,8 @@ def toe_tap_analysis(fps, bounding_box, start_time, end_time, input_video, is_le
             "cvAverageClosingSpeed": cvAverageClosingSpeed
         },
         "landMarks": toe_landmarks,
-        "normalization_landmarks": knee_landmarks
+        "normalization_landmarks": knee_landmarks,
+        "normalization_factor": normalization_factor
 
     }
 
@@ -558,13 +586,17 @@ def updateLandMarks(inputJson):
     start_time =  inputJson['start_time'] 
     end_time =  inputJson['end_time']
     normalization_landmarks = inputJson['normalization_landmarks']
+    normalization_factor = 1
+    if 'normalization_factor' in inputJson:
+        normalization_factor = inputJson['normalization_factor']
+
     landmarks_signal = []
 
     for i in range(len(knee_landmarks)):
         p = [knee_landmarks[i][0],knee_landmarks[i][1]]
         q = [normalization_landmarks[i][0],normalization_landmarks[i][1]]
         
-        landmarks_signal.append([0,math.dist(p, q)])
+        landmarks_signal.append([0,(math.dist(p, q)/normalization_factor)])
         #knee_landmarks_signal.append([knee_landmarks[i][0] - normalization_landmarks[i][0], knee_landmarks[i][1] - normalization_landmarks[i][1]])
 
     signalOfInterest = np.array(landmarks_signal)[:, 1]
@@ -587,15 +619,13 @@ def updateLandMarks(inputJson):
                                                                                          minDistance=3,
                                                                                          cutOffFrequency=7.5, prct=0.05)
     
-    distance = signalOfInterest
-    
     #distance = signalOfInterest
     # plot
     # a plot like this should appear on the page.
 
     # green dots -> Peaks
     # red dots -> Left Valleys
-    # blue dots -> Rigth Valleys
+    # blue dots -> Right Valleys
     # figure, ax = plt.subplots(figsize=(15, 5))
     # ax.plot(range(len(distance)), distance)
     # ax.set_ylim([np.min(distance), np.max(distance)])
@@ -758,7 +788,8 @@ def updateLandMarks(inputJson):
             "cvAverageClosingSpeed": cvAverageClosingSpeed
         },
         "landMarks": knee_landmarks,
-        "normalization_landmarks": normalization_landmarks
+        "normalization_landmarks": normalization_landmarks,
+        "normalization_factor": normalization_factor
 
     }
 
@@ -894,6 +925,265 @@ def updatePeaksAndValleys(inputJson):
     
     return radarTable
 
+def leg_raise_yolo(fps, bounding_box, start_time, end_time, input_video, is_left_leg):
+
+    model = models.get("yolo_nas_pose_l", pretrained_weights="coco_pose")
+    device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+    model.to(device)
+    confidence = 0.7
+
+    video = cv2.VideoCapture(input_video)
+
+    start_frame = round(fps * start_time)
+    end_frame = round(fps * end_time)
+    video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    frameCounter = start_frame
+
+    knee_landmarks = []
+    shoulder_landmarks = []
+    landmarks_signal = []
+
+    knee_landmark_pos = 14
+
+    if is_left_leg is True:
+        knee_landmark_pos = 13
+
+    torso = []
+    while frameCounter < end_frame:
+        status, frame = video.read()
+        if status == False:
+            break
+
+        x1 = bounding_box['x']
+        y1 = bounding_box['y']
+        x2 = x1 + bounding_box['width']
+        y2 = y1 + bounding_box['height']
+
+        # Extracting the ROI based on the bounding box
+        roi = frame[y1:y2, x1:x2]
+
+        # Convert the ROI to RGB since many models expect input in this format
+        results = model.predict(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB), conf=confidence)
+        landmarks = results.prediction.poses[0]
+        frameCounter = frameCounter + 1
+
+        midpointshoulders = (np.array(landmarks[5, :2]) + np.array(landmarks[6, :2])) / 2
+        midpointhips = (np.array(landmarks[11, :2]) + np.array(landmarks[12, :2])) / 2
+
+        landmarks_signal.append(np.linalg.norm(np.array(landmarks[knee_landmark_pos, :2]) - midpointshoulders))
+        shoulder_landmarks.append(midpointshoulders)
+        knee_landmarks.append(landmarks[knee_landmark_pos])
+
+        torso.append(np.abs(midpointshoulders[1] - midpointhips[1]))
+
+    normalization_factor = np.mean(torso)
+
+    signalOfInterest = np.array(landmarks_signal)/normalization_factor
+    signalOfInterest = filterSignal(signalOfInterest, cutOffFrequency=8)
+
+    currentFs = 1 / fps
+    desiredFs = 1 / 60
+
+    duration = end_time - start_time
+    print(duration)
+    print(knee_landmarks)
+    print(signalOfInterest)
+
+    timeVector = np.linspace(0, duration, int(duration / currentFs))
+
+    newTimeVector = np.linspace(0, duration, int(duration / desiredFs))
+    upsampleSignal = signal.resample(signalOfInterest, len(newTimeVector))
+
+    distance, velocity, peaks, indexPositiveVelocity, indexNegativeVelocity = peakFinder(upsampleSignal, fs=60,
+                                                                                         minDistance=3,
+                                                                                         cutOffFrequency=7.5, prct=0.05)
+
+    # plot
+    # a plot like this should appear on the page.
+
+    # green dots -> Peaks
+    # red dots -> Left Valleys
+    # blue dots -> Rigth Valleys
+    # figure, ax = plt.subplots(figsize=(15, 5))
+    # ax.plot(range(len(distance)), distance)
+    # ax.set_ylim([np.min(distance), np.max(distance)])
+    # ax.set_xlim([0, len(distance)])
+    print(frameCounter)
+    line_time = []
+    sizeOfDist = len(distance)
+    for index, item in enumerate(distance):
+        line_time.append((index / sizeOfDist) * duration + start_time)
+
+    line_peaks = []
+    line_peaks_time = []
+    line_valleys_start = []
+    line_valleys_start_time = []
+    line_valleys_end = []
+    line_valleys_end_time = []
+
+    line_valleys = []
+    line_valleys_time = []
+
+    for index, item in enumerate(peaks):
+        # ax.plot(item['openingValleyIndex'], distance[item['openingValleyIndex']], 'ro', alpha=0.75)
+        # ax.plot(item['peakIndex'], distance[item['peakIndex']], 'go', alpha=0.75)
+        # ax.plot(item['closingValleyIndex'], distance[item['closingValleyIndex']], 'bo', alpha=0.75)
+        # line_valleys.append(prevValley+item['openingValleyIndex'])
+
+        line_peaks.append(distance[item['peakIndex']])
+        line_peaks_time.append((item['peakIndex'] / sizeOfDist) * duration + start_time)
+
+        line_valleys_start.append(distance[item['openingValleyIndex']])
+        line_valleys_start_time.append((item['openingValleyIndex'] / sizeOfDist) * duration + start_time)
+
+        line_valleys_end.append(distance[item['closingValleyIndex']])
+        line_valleys_end_time.append((item['closingValleyIndex'] / sizeOfDist) * duration + start_time)
+
+        line_valleys.append(distance[item['openingValleyIndex']])
+        line_valleys_time.append((item['openingValleyIndex'] / sizeOfDist) * duration + start_time)
+
+    amplitude = []
+    peakTime = []
+    rmsVelocity = []
+    maxOpeningSpeed = []
+    maxClosingSpeed = []
+    averageOpeningSpeed = []
+    averageClosingSpeed = []
+
+    for idx, peak in enumerate(peaks):
+        # Height measures
+        x1 = peak['openingValleyIndex']
+        y1 = distance[peak['openingValleyIndex']]
+
+        x2 = peak['closingValleyIndex']
+        y2 = distance[peak['closingValleyIndex']]
+
+        x = peak['peakIndex']
+        y = distance[peak['peakIndex']]
+
+        f = interpolate.interp1d(np.array([x1, x2]), np.array([y1, y2]))
+
+        amplitude.append(y - f(x))
+
+        # Opening Velocity
+        rmsVelocity.append(np.sqrt(np.mean(velocity[peak['openingValleyIndex']:peak['closingValleyIndex']] ** 2)))
+
+        averageOpeningSpeed.append((y - f(x)) / ((peak['peakIndex'] - peak['openingValleyIndex']) * (1 / 60)))
+        averageClosingSpeed.append((y - f(x)) / ((peak['closingValleyIndex'] - peak['peakIndex']) * (1 / 60)))
+
+        # timming
+        peakTime.append(peak['peakIndex'] * (1 / 60))
+
+    meanAmplitude = np.mean(amplitude)
+    stdAmplitude = np.std(amplitude)
+
+    meanRMSVelocity = np.mean(rmsVelocity)
+    stdRMSVelocity = np.std(rmsVelocity)
+    meanAverageOpeningSpeed = np.mean(averageOpeningSpeed)
+    stdAverageOpeningSpeed = np.std(averageOpeningSpeed)
+    meanAverageClosingSpeed = np.mean(averageClosingSpeed)
+    stdAverageClosingSpeed = np.std(averageClosingSpeed)
+
+    meanCycleDuration = np.mean(np.diff(peakTime))
+    stdCycleDuration = np.std(np.diff(peakTime))
+    rangeCycleDuration = np.max(np.diff(peakTime)) - np.min(np.diff(peakTime))
+    rate = len(peaks) / (peaks[-1]['closingValleyIndex'] - peaks[0]['openingValleyIndex']) / (1 / 60)
+
+    earlyPeaks = peaks[:len(peaks) // 3]
+    latePeaks = peaks[-len(peaks) // 3:]
+    amplitudeDecay = np.mean(distance[:len(peaks) // 3]) / np.mean(distance[-len(peaks) // 3:])
+    velocityDecay = np.sqrt(
+        np.mean(velocity[earlyPeaks[0]['openingValleyIndex']:earlyPeaks[-1]['closingValleyIndex']] ** 2)) / np.sqrt(
+        np.mean(velocity[latePeaks[0]['openingValleyIndex']:latePeaks[-1]['closingValleyIndex']] ** 2))
+    rateDecay = (len(earlyPeaks) / (
+            (earlyPeaks[-1]['closingValleyIndex'] - earlyPeaks[0]['openingValleyIndex']) / (1 / 60))) / (
+                        len(latePeaks) / (
+                        (latePeaks[-1]['closingValleyIndex'] - latePeaks[0]['openingValleyIndex']) / (1 / 60)))
+
+    cvAmplitude = stdAmplitude / meanAmplitude
+    cvCycleDuration = stdCycleDuration / meanCycleDuration
+    cvRMSVelocity = stdRMSVelocity / meanRMSVelocity
+    cvAverageOpeningSpeed = stdAverageOpeningSpeed / meanAverageOpeningSpeed
+    cvAverageClosingSpeed = stdAverageClosingSpeed / meanAverageClosingSpeed
+
+    # results = np.array([meanAmplitude, stdAmplitude,
+    #                     meanRMSVelocity, stdRMSVelocity, meanAverageOpeningSpeed, stdAverageOpeningSpeed,
+    #                     meanAverageClosingSpeed, stdAverageClosingSpeed,
+    #                     meanCycleDuration, stdCycleDuration, rangeCycleDuration, rate,
+    #                     amplitudeDecay, velocityDecay, rateDecay,
+    #                     cvAmplitude, cvCycleDuration, cvRMSVelocity, cvAverageOpeningSpeed, cvAverageClosingSpeed])
+
+    jsonFinal = {
+        "linePlot": {
+            "data": distance,
+            "time": line_time
+        },
+        "peaks": {
+            "data": line_peaks,
+            "time": line_peaks_time
+        },
+        "valleys": {
+            "data": line_valleys,
+            "time": line_valleys_time
+        },
+        "valleys_start": {
+            "data": line_valleys_start,
+            "time": line_valleys_start_time
+        },
+        "valleys_end": {
+            "data": line_valleys_end,
+            "time": line_valleys_end_time
+        },
+        "radar": {
+            "A": [2.5, 3.8, 5.9, 4.2, 8.6, 4.9, 6.9, 9, 8.4, 7.3],
+            "B": [3.8, 7.1, 7.4, 5.9, 4.2, 3.1, 6.5, 6.4, 3, 7],
+            "labels": ["Mean Frequency", "Mean cycle amplitude", "CV cycle amplitude", "Mean cycle rms velocity",
+                       "CV cycle rms velocity",
+                       "Mean cycle duration", "CV cycle duration", "Range cycle duration", "Amplitude decay",
+                       "Velocity decay"],
+            "velocity": velocity
+        },
+        "radarTable": {
+            "MeanAmplitude": meanAmplitude,
+            "StdAmplitude": stdAmplitude,
+            "MeanRMSVelocity": meanRMSVelocity,
+            "StdRMSVelocity": stdRMSVelocity,
+            "meanAverageOpeningSpeed": meanAverageOpeningSpeed,
+            "stdAverageOpeningSpeed": stdAverageOpeningSpeed,
+            "meanAverageClosingSpeed": meanAverageClosingSpeed,
+            "stdAverageClosingSpeed": stdAverageClosingSpeed,
+            "meanCycleDuration": meanCycleDuration,
+            "stdCycleDuration": stdCycleDuration,
+            "rangeCycleDuration": rangeCycleDuration,
+            "rate": rate,
+            "amplitudeDecay": amplitudeDecay,
+            "velocityDecay": velocityDecay,
+            "rateDecay": rateDecay,
+            "cvAmplitude": cvAmplitude,
+            "cvCycleDuration": cvCycleDuration,
+            "cvRMSVelocity": cvRMSVelocity,
+            "cvAverageOpeningSpeed": cvAverageOpeningSpeed,
+            "cvAverageClosingSpeed": cvAverageClosingSpeed
+        },
+        "landMarks": knee_landmarks,
+        "normalization_landmarks": shoulder_landmarks,
+        "normalization_factor": normalization_factor
+
+    }
+
+    # json_object = json.dumps(jsonFinal, default=json_serialize)
+    #
+    # # Writing to sample.json
+    with open("sample_yolo_leg.json", "w") as outfile:
+        outfile.write(jsonFinal)
+
+    return jsonFinal
+
+
+
+
+
+
 
 def final_analysis(inputJson, inputVideo):
     # %%
@@ -911,9 +1201,10 @@ def final_analysis(inputJson, inputVideo):
     task_name = data['task_name']
 
     if task_name == 'Leg agility - Right':
-        return leg_raise_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
+        return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, False)
     elif task_name == 'Leg agility - Left':
-        return leg_raise_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+        # return leg_raise_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+        return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, True)
     elif task_name == 'Toe tapping - Left':
         return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
     elif task_name == 'Toe tapping - Right':
