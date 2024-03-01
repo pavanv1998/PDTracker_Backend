@@ -1174,8 +1174,8 @@ def leg_raise_yolo(fps, bounding_box, start_time, end_time, input_video, is_left
     # json_object = json.dumps(jsonFinal, default=json_serialize)
     #
     # # Writing to sample.json
-    with open("sample_yolo_leg.json", "w") as outfile:
-        outfile.write(jsonFinal)
+    # with open("sample_yolo_leg.json", "w") as outfile:
+    #     outfile.write(jsonFinal)
 
     return jsonFinal
 
