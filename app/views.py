@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import cv2
@@ -10,8 +11,10 @@ import time
 import json
 from app.leg_raise_2 import final_analysis, updatePeaksAndValleys, updateLandMarks
 
+
 def home(req):
-    return HttpResponse("<h1>Hello world!</h1>")
+    return render(req, "index.html")
+    # return HttpResponse("<h1>Hello world!</h1>")
 
 
 def analyse_video(path=None):
@@ -52,7 +55,7 @@ def analyse_video_frames(path=None):
     except Exception as e:
         print(f"Error in processing video : {e}")
         return {'error': str(e)}
-    
+
 
 def update_plot_data(json_data):
     try:
@@ -140,7 +143,6 @@ def handle_upload2(request):
     return val
 
 
-
 @api_view(['POST'])
 def get_video_data(request):
     if request.method == 'POST':
@@ -155,7 +157,8 @@ def leg_raise_task(request):
         output = handle_upload2(request)
 
         return Response(output)
-    
+
+
 @api_view(['POST'])
 def updatePlotData(request):
     if request.method == 'POST':
@@ -163,11 +166,12 @@ def updatePlotData(request):
             json_data = json.loads(request.POST['json_data'])
         except json.JSONDecodeError:
             raise Exception("Invalid JSON data")
-        
+
         output = update_plot_data(json_data)
 
         return Response(output)
-    
+
+
 @api_view(['POST'])
 def update_landmarks(request):
     if request.method == 'POST':
@@ -175,8 +179,7 @@ def update_landmarks(request):
             json_data = json.loads(request.POST['json_data'])
         except json.JSONDecodeError:
             raise Exception("Invalid JSON data")
-        
+
         output = updateLandMarks(json_data)
 
         return Response(output)
-

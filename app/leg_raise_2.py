@@ -19,7 +19,7 @@ from super_gradients.training import models
 
 from app.finderPeaksSignal import peakFinder
 
-
+from app.hand_analysis import finger_tap, hand_analysis
 # %%
 def filterSignal(rawSignal, fs=25, cutOffFrequency=5):
     b, a = signal.butter(2, cutOffFrequency, fs=fs, btype='low', analog=False)
@@ -34,7 +34,9 @@ def run_time():
 def json_serialize(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
-    return obj
+    else:
+        return str(obj)
+    # return obj
 
 
 def leg_raise_analysis(fps, bounding_box, start_time, end_time, input_video, is_left_leg):
@@ -1171,11 +1173,13 @@ def leg_raise_yolo(fps, bounding_box, start_time, end_time, input_video, is_left
 
     }
 
-    # json_object = json.dumps(jsonFinal, default=json_serialize)
+    json_object = json.dumps(jsonFinal, default=json_serialize)
     #
     # # Writing to sample.json
-    with open("sample_yolo_leg.json", "w") as outfile:
-        outfile.write(jsonFinal)
+    file_name = "leg_agility_left" if is_left_leg is True else "leg_agility_right"
+
+    with open(file_name + ".json", "w") as outfile:
+        outfile.write(json_object)
 
     return jsonFinal
 
@@ -1209,6 +1213,14 @@ def final_analysis(inputJson, inputVideo):
         return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
     elif task_name == 'Toe tapping - Right':
         return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
+    elif task_name == 'Finger Tap - Left':
+        return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, True)
+    elif task_name == 'Finger Tap - Right':
+        return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, False)
+    elif task_name == 'Hand movement - Left':
+        return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+    elif task_name == 'Hand movement - Right':
+        return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
 
     # fps, bounding_box, start_time, end_time, input_video):
 

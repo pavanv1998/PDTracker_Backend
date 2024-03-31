@@ -1,0 +1,7 @@
+.idea
+app/__pycache__/*
+app/migrations/*
+app/uploads/*
+backend/__pycache__/*
+.DS_Store
+test-files
