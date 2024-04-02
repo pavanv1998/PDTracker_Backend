@@ -1,7 +1,5 @@
 from ultralytics import YOLO
 import cv2
-import json
-import pathlib
 
 
 def YOLOTracker(filePath, modelPath, device='cpu'):

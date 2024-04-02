@@ -1,4 +1,3 @@
-from django.http import HttpResponse
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -6,7 +5,7 @@ import cv2
 from django.core.files.storage import FileSystemStorage
 import os
 import uuid
-from app.YOLOTracker import YOLOTracker
+from app.analysis.YOLOTracker import YOLOTracker
 import time
 import json
 from app.leg_raise_2 import final_analysis, updatePeaksAndValleys, updateLandMarks

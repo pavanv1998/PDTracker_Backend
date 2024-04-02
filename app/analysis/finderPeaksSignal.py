@@ -1,10 +1,5 @@
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.signal as signal
-import scipy.interpolate as interpolate
-import scipy.stats as stats
-import os
 
 
 def compareNeighboursNegative(item1, item2, distance, minDistance=5):

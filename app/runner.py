@@ -1,4 +1,4 @@
-from YOLOTracker import YOLOTracker
+from app.analysis.YOLOTracker import YOLOTracker
 import json
 import time
 

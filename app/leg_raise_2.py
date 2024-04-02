@@ -1,25 +1,20 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import mediapipe as mp
 import cv2
 import math
 import json
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 # %%
 import scipy.signal as signal
 import scipy.interpolate as interpolate
-import scipy.stats as stats
-import time
 
 import torch
 from super_gradients.training import models
 
-from app.finderPeaksSignal import peakFinder
+from app.analysis.finderPeaksSignal import peakFinder
 
-from app.hand_analysis import finger_tap, hand_analysis
+from app.analysis.analysis import analysis
 # %%
 def filterSignal(rawSignal, fs=25, cutOffFrequency=5):
     b, a = signal.butter(2, cutOffFrequency, fs=fs, btype='low', analog=False)
@@ -30,7 +25,8 @@ def run_time():
     video_path = '/Users/amergu/Personal/webapps/ml-sample-app/backend/app/uploads/91D4C78179EA446.mp4'
     leg_raise_analysis(60, {'x': 263, 'y': 371, 'width': 528, 'height': 1465}, start_time=213.844, end_time=224.937,
                        input_video=video_path, is_left_leg=True)
-    
+
+
 def json_serialize(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -1203,25 +1199,27 @@ def final_analysis(inputJson, inputVideo):
     start_time = data['start_time']
     end_time = data['end_time']
     task_name = data['task_name']
+    
+    return analysis(boundingBox, start_time, end_time, inputVideo, task_name)
 
-    if task_name == 'Leg agility - Right':
-        return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, False)
-    elif task_name == 'Leg agility - Left':
-        # return leg_raise_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
-        return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, True)
-    elif task_name == 'Toe tapping - Left':
-        return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
-    elif task_name == 'Toe tapping - Right':
-        return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
-    elif task_name == 'Finger Tap - Left':
-        return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, True)
-    elif task_name == 'Finger Tap - Right':
-        return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, False)
-    elif task_name == 'Hand movement - Left':
-        return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
-    elif task_name == 'Hand movement - Right':
-        return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
-
+    # if task_name == 'Leg agility - Right':
+    #     return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, False)
+    # elif task_name == 'Leg agility - Left':
+    #     # return leg_raise_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+    #     return leg_raise_yolo(fps, boundingBox, start_time, end_time, inputVideo, True)
+    # elif task_name == 'Toe tapping - Left':
+    #     return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+    # elif task_name == 'Toe tapping - Right':
+    #     return toe_tap_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
+    # elif task_name == 'Finger Tap - Left':
+    #     return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, True)
+    # elif task_name == 'Finger Tap - Right':
+    #     return finger_tap(fps, boundingBox, start_time, end_time, inputVideo, False)
+    # elif task_name == 'Hand movement - Left':
+    #     return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, True)
+    # elif task_name == 'Hand movement - Right':
+    #     return hand_analysis(fps, boundingBox, start_time, end_time, inputVideo, False)
+    #
     # fps, bounding_box, start_time, end_time, input_video):
 
     # Closing file

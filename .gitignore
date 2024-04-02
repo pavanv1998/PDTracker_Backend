@@ -5,3 +5,6 @@ app/uploads/*
 backend/__pycache__/*
 .DS_Store
 test-files
+__pycache__/*
+/app/analysis/__pycache__
+/app/__pycache__

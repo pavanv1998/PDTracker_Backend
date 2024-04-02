@@ -1,23 +1,15 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import mediapipe as mp
 import cv2
 import math
 import json
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 # %%
 import scipy.signal as signal
 import scipy.interpolate as interpolate
-import scipy.stats as stats
-import time
 
-import torch
-from super_gradients.training import models
-
-from app.finderPeaksSignal import peakFinder
+from app.analysis.finderPeaksSignal import peakFinder
 
 
 def json_serialize(obj):
