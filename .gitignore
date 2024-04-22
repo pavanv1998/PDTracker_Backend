@@ -8,3 +8,7 @@ test-files
 __pycache__/*
 /app/analysis/__pycache__
 /app/__pycache__
+/app/analysis/constants/__pycache__
+/backend/__pycache__
+backend/__pycache__/urls.cpython-39.pyc
+*.pyc
