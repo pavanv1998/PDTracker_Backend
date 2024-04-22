@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import cv2
 from app.analysis.util import filter_signal, get_output
@@ -8,16 +10,17 @@ import scipy.signal as signal
 
 
 def analysis(bounding_box, start_time, end_time, input_video, task_name):
-    detector = get_detector(task_name)
     video = cv2.VideoCapture(input_video)
 
     fps = video.get(cv2.CAP_PROP_FPS)
-    start_frame_idx = round(fps * start_time)
-    end_frame_idx = round(fps * end_time)
+    start_frame_idx = math.floor(fps * start_time)
+    end_frame_idx = math.floor(fps * end_time)
     video.set(cv2.CAP_PROP_POS_FRAMES, start_frame_idx)
     current_frame_idx = start_frame_idx
 
     essential_landmarks = []
+
+    detector, detector_update = get_detector(task_name)
 
     while current_frame_idx < end_frame_idx:
         status, current_frame = video.read()
@@ -25,10 +28,14 @@ def analysis(bounding_box, start_time, end_time, input_video, task_name):
         if status is False:
             break
 
+        if detector_update:
+            detector, _ = get_detector(task_name)
+
         landmarks = get_essential_landmarks(current_frame, current_frame_idx, task_name, bounding_box, detector)
 
         # if frame doesn't have essential landmarks skip
         if not landmarks:
+            essential_landmarks.append([])
             current_frame_idx += 1
             continue
 
@@ -38,12 +45,7 @@ def analysis(bounding_box, start_time, end_time, input_video, task_name):
     # skip those landmarks which need not be displayed
     display_landmarks = get_display_landmarks(essential_landmarks, task_name)
     normalization_factor = get_normalisation_factor(essential_landmarks, task_name)
-
     return get_analysis_output(task_name, display_landmarks, normalization_factor, fps, start_time, end_time)
-
-    # "landMarks": knee_landmarks,
-    # "normalization_landmarks": nose_landmarks,
-    # "normalization_factor": normalization_factor
 
 
 def get_analysis_output(task_name, display_landmarks, normalization_factor, fps, start_time, end_time):

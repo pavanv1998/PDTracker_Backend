@@ -4,7 +4,51 @@ import mediapipe as mp
 import cv2
 
 import app.analysis.constants.mp_handlandmarks as MP_HAND_LANDMARKS
+import app.analysis.constants.mp_landmarks as MP_LANDMARKS
 import app.analysis.constants.yolo_landmarks as YOLO_LANDMARKS
+
+from mediapipe.framework.formats import landmark_pb2
+
+
+def draw_opt(rgb_image, detection_result):
+    pose_landmarks_list = detection_result.pose_landmarks[0]
+    annotated_image = np.copy(rgb_image)
+    # Draw the pose landmarks.
+    pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+    pose_landmarks_proto.landmark.extend([
+        landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in
+        pose_landmarks_list
+    ])
+    mp.solutions.drawing_utils.draw_landmarks(
+        annotated_image,
+        pose_landmarks_proto,
+        mp.solutions.pose.POSE_CONNECTIONS,
+        mp.solutions.drawing_styles.get_default_pose_landmarks_style())
+    return annotated_image
+
+
+def draw_hand(rgb_image, hand_landmarks, bounds=None):
+    annotated_image = np.copy(rgb_image)
+    # Draw the pose landmarks.
+    pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+
+
+    try:
+        pose_landmarks_proto.landmark.extend([
+            landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in
+            hand_landmarks
+        ])
+    except:
+        [x1, y1, x2, y2] = bounds
+        pose_landmarks_proto.landmark.extend([
+            landmark_pb2.NormalizedLandmark(x=landmark[0] /(x2 - x1), y=landmark[1] / (y2 - y1), z=landmark[2]) for landmark in
+            hand_landmarks
+        ])
+    mp.solutions.drawing_utils.draw_landmarks(
+        annotated_image,
+        pose_landmarks_proto
+    )
+    return annotated_image
 
 
 def get_essential_landmarks(current_frame, current_frame_idx, task, bounding_box, detector):
@@ -17,9 +61,9 @@ def get_essential_landmarks(current_frame, current_frame_idx, task, bounding_box
     elif "finger tap" in str.lower(task):
         return get_finger_tap_landmarks(current_frame, current_frame_idx, bounding_box, is_left, detector)
     elif "leg agility" in str.lower(task):
-        return get_leg_agility_landmarks(bounding_box, detector, current_frame, is_left)
-    # elif "toe tapping" in str.lower(task):
-    #     return mp_pose()
+        return get_leg_agility_landmarks(bounding_box, detector, current_frame, current_frame_idx, is_left)
+    elif "toe tapping" in str.lower(task):
+        return get_toe_tapping_landmarks(bounding_box, detector, current_frame_idx, current_frame, is_left)
 
 
 def get_signal(display_landmarks, task):
@@ -29,6 +73,8 @@ def get_signal(display_landmarks, task):
         return get_finger_tap_signal(display_landmarks)
     elif "leg agility" in str.lower(task):
         return get_leg_agility_signal(display_landmarks)
+    elif "toe tapping" in str.lower(task):
+        return get_toe_tapping_signal(display_landmarks)
 
 
 def get_normalisation_factor(landmarks, task):
@@ -38,6 +84,8 @@ def get_normalisation_factor(landmarks, task):
         return get_finger_tap_nf(landmarks)
     elif "leg agility" in str.lower(task):
         return get_leg_agility_nf(landmarks)
+    elif "toe tapping" in str.lower(task):
+        return get_toe_tapping_nf(landmarks)
 
 
 def get_display_landmarks(landmarks, task):
@@ -47,9 +95,11 @@ def get_display_landmarks(landmarks, task):
         return get_finger_tap_display_landmarks(landmarks)
     elif "leg agility" in str.lower(task):
         return get_leg_agility_display_landmarks(landmarks)
+    elif "toe tapping" in str.lower(task):
+        return get_toe_tapping_display_landmarks(landmarks)
 
 
-def get_leg_agility_landmarks(bounding_box, detector, current_frame, is_left):
+def get_leg_agility_landmarks(bounding_box, detector, current_frame, current_frame_idx, is_left):
     [x1, y1, x2, y2] = get_boundaries(bounding_box)
     roi = current_frame[y1:y2, x1:x2]
 
@@ -64,6 +114,8 @@ def get_leg_agility_landmarks(bounding_box, detector, current_frame, is_left):
     knee_landmark = landmarks[knee_idx]
     left_hip = landmarks[YOLO_LANDMARKS.LEFT_HIP]
     right_hip = landmarks[YOLO_LANDMARKS.RIGHT_HIP]
+
+    # cv2.imwrite("outputs/" + str(current_frame_idx) + ".jpg", draw_hand(roi, [knee_landmark], [x1, y1, x2, y2]))
 
     return [left_shoulder, right_shoulder, knee_landmark, left_hip, right_hip]
 
@@ -97,6 +149,48 @@ def get_leg_agility_display_landmarks(landmarks_list):
     return display_landmarks
 
 
+def get_toe_tapping_landmarks(bounding_box, detector, current_frame_idx, current_frame, is_left):
+    [x1, y1, x2, y2] = get_boundaries(bounding_box)
+
+    frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB)
+
+    # # # crop frame based on bounding box info
+    # Imagedata = frame[y1:y2, x1:x2, :].astype(np.uint8)
+    # # Imagedata = frame.astype(np.uint8)
+    # image = mp.Image(image_format=mp.ImageFormat.SRGB, data=Imagedata)
+    # detection_result = detector.detect_for_video(image, current_frame_idx)
+    #
+    # landmarks = detection_result.pose_landmarks[0]
+
+    landmarks = detector.process(frame[y1:y2, x1:x2, :]).pose_landmarks.landmark
+
+    knee_idx = MP_LANDMARKS.LEFT_KNEE if is_left else MP_LANDMARKS.RIGHT_KNEE
+
+    toe_idx = MP_LANDMARKS.LEFT_FOOT_INDEX if is_left else MP_LANDMARKS.RIGHT_FOOT_INDEX
+
+    knee_landmark = [landmarks[knee_idx].x * (x2 - x1), landmarks[knee_idx].y * (y2 - y1)]
+    toe_landmark = [landmarks[toe_idx].x * (x2 - x1), landmarks[toe_idx].y * (y2 - y1)]
+
+    return [knee_landmark, toe_landmark]
+
+
+def get_toe_tapping_signal(landmarks_list):
+    signal = []
+    for landmarks in landmarks_list:
+        [knee, toe] = landmarks
+        distance = math.dist(knee, toe)
+        signal.append(distance)
+    return signal
+
+
+def get_toe_tapping_nf(_):
+    return 1
+
+
+def get_toe_tapping_display_landmarks(landmarks):
+    return landmarks
+
+
 def get_hand_landmarks(bounding_box, detector, current_frame_idx, current_frame, is_left):
     current_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB)
     # crop frame to the bounding box
@@ -126,6 +220,14 @@ def get_hand_movement_landmarks(current_frame, current_frame_idx, bounding_box, 
     ring_finger = get_landmark_coords(hand_landmarks[MP_HAND_LANDMARKS.RING_FINGER_TIP], bounds)
     wrist = get_landmark_coords(hand_landmarks[MP_HAND_LANDMARKS.WRIST], bounds)
 
+    if current_frame_idx == 6667:
+        [x1, y1, x2, y2] = bounds
+        landmarks = []
+        landmarks.append(hand_landmarks[MP_HAND_LANDMARKS.INDEX_FINGER_TIP])
+        landmarks.append(hand_landmarks[MP_HAND_LANDMARKS.MIDDLE_FINGER_TIP])
+        landmarks.append(hand_landmarks[MP_HAND_LANDMARKS.RING_FINGER_TIP])
+        cv2.imwrite("outputs/" + str(current_frame_idx) + ".jpg", draw_hand(current_frame[y1:y2, x1:x2, :], landmarks))
+
     return [index_finger, middle_finger, ring_finger, wrist]
 
 
@@ -133,7 +235,8 @@ def get_hand_movement_signal(landmarks_list):
     signal = []
     for landmarks in landmarks_list:
         [index_finger, middle_finger, ring_finger, wrist] = landmarks
-        distance = (math.dist(index_finger, wrist) + math.dist(middle_finger, wrist) + math.dist(ring_finger, wrist)) / 3
+        distance = (math.dist(index_finger, wrist) + math.dist(middle_finger, wrist) + math.dist(ring_finger,
+                                                                                                 wrist)) / 3
         signal.append(distance)
     return signal
 
@@ -166,6 +269,11 @@ def get_finger_tap_landmarks(current_frame, current_frame_idx, bounding_box, is_
     middle_finger = get_landmark_coords(hand_landmarks[MP_HAND_LANDMARKS.MIDDLE_FINGER_TIP], bounds)
     wrist = get_landmark_coords(hand_landmarks[MP_HAND_LANDMARKS.WRIST], bounds)
 
+    if current_frame_idx == 1408:
+        [x1, y1, x2, y2] = bounds
+        landmarks = [hand_landmarks[MP_HAND_LANDMARKS.INDEX_FINGER_TIP], hand_landmarks[MP_HAND_LANDMARKS.THUMB_TIP]]
+        cv2.imwrite("outputs/" + str(current_frame_idx) + ".jpg", draw_hand(current_frame[y1:y2, x1:x2, :], landmarks))
+
     return [thumb_finger, index_finger, middle_finger, wrist]
 
 
@@ -181,6 +289,8 @@ def get_finger_tap_signal(landmarks_list):
 def get_finger_tap_nf(landmarks_list):
     values = []
     for landmarks in landmarks_list:
+        if not landmarks:
+            continue
         [_, _, middle_finger, wrist] = landmarks
         distance = math.dist(middle_finger, wrist)
         values.append(distance)
@@ -190,6 +300,9 @@ def get_finger_tap_nf(landmarks_list):
 def get_finger_tap_display_landmarks(landmarks_list):
     display_landmarks = []
     for landmarks in landmarks_list:
+        if not landmarks:
+            display_landmarks.append([])
+            continue
         [thumb_finger, index_finger, _, _] = landmarks
         display_landmarks.append([thumb_finger, index_finger])
     return display_landmarks

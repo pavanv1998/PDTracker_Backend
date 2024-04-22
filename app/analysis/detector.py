@@ -8,13 +8,13 @@ from super_gradients.training import models
 
 def get_detector(task):
     if "hand movement" in str.lower(task):
-        return mp_hand()
+        return mp_hand(), True
     elif "leg agility" in str.lower(task):
-        return yolo_nas_pose()
+        return yolo_nas_pose(), False
     elif "finger tap" in str.lower(task):
-        return mp_hand()
+        return mp_hand(), True
     elif "toe tapping" in str.lower(task):
-        return mp_pose()
+        return test_pose(), False
 
 
 # mediapipe pose detector
@@ -28,6 +28,10 @@ def mp_pose():
     )
 
     return vision.PoseLandmarker.create_from_options(options)
+
+
+def test_pose():
+    return mp.solutions.pose.Pose()
 
 
 # mediapipe hand detector
